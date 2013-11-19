@@ -13,6 +13,13 @@ Drive::~Drive()
     //dtor
 }
 
+bool Drive::isBusy()
+{
+	if(!_busy)
+		digitalWrite(_stepPin, LOW);
+	return _busy;
+}
+
 void Drive::Connect(int dP, int sP)
 {
     _dirPin=dP;
@@ -21,9 +28,9 @@ void Drive::Connect(int dP, int sP)
     pinMode( _stepPin, OUTPUT );
     digitalWrite( _dirPin, HIGH );
     for(int i =0; i<100; i++) {
-        digitalWrite(_stepPin, LOW);
-        delay(3);
         digitalWrite(_stepPin, HIGH);
+        delay(3);
+        digitalWrite(_stepPin, LOW);
     }
     digitalWrite( _dirPin, LOW );
 }
@@ -38,8 +45,8 @@ void Drive::Move()
         _curPos = 0;
         digitalWrite(_dirPin,LOW);
     }
-    digitalWrite(_stepPin , HIGH);
-    digitalWrite(_stepPin, LOW);
+    digitalWrite(_stepPin , LOW);
+    digitalWrite(_stepPin, HIGH);
 }
 
 bool Drive::ShouldMove(unsigned int newTime, bool disp)

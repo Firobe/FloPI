@@ -11,9 +11,7 @@ public:
     Drive();
     virtual ~Drive();
     void Move();
-    bool isBusy() {
-        return _busy;
-    }
+    bool isBusy();
     bool ShouldMove(unsigned int, bool);
     void NewNote(int, unsigned int, unsigned int);
     void Connect(int,int);
