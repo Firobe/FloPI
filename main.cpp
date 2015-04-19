@@ -35,7 +35,7 @@ int main( void )
     cin >> tempo;
     cout << "  Mesure : ";
     cin >> mesure;
-    cout << " DEFNOTE : ";
+    cout << " DEFNOTE (36) : ";
     cin >> defnote;
     track.open( trackPath.c_str() );
     timeRef=micros();
