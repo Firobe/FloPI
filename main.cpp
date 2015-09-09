@@ -95,9 +95,12 @@ void parser( int* noteD, unsigned int* lengthD, unsigned int* timeD, int* channe
 {
     string curStr;
     int bar = 0, note = 0, length = 0, locTime = 0, absTime = 0, pause, channel;
-    if(!getline( track, curStr ))
-        *noteD = -1;
-    else {
+    do{
+        if(!getline( track, curStr )){
+            *noteD = -1;
+            return;
+            }
+        }while(curStr.find("NT") == string::npos);
         string first = curStr.substr( 0, 30 );
         string second = curStr.substr( 52, 30 );
         string noteStr;
@@ -203,5 +206,4 @@ void parser( int* noteD, unsigned int* lengthD, unsigned int* timeD, int* channe
         *noteD = note;
         *lengthD = length;
         *channelD = channel;
-    }
 }
