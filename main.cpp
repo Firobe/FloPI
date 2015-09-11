@@ -1,63 +1,57 @@
-#include <iostream>
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-#include <fstream>
-#include <wiringPi.h>
-#include <vector>
 #include "Drive.h"
 
 #define NBDRIVES 5
 
 using namespace std;
-void parser( int*, unsigned int*, unsigned int* , int*);
-ifstream track;
-int tempo;
-float mesure;
-int defnote;
-int main( void )
-{
-    unsigned int timeRef;
+
+vector<Event> events;
+unsigned int tempo, bpm;
+
+bool order(Event a, Event b) {
+    return a.time < b.time;
+    }
+
+int main( void ) {
+    unsigned int timeRef, defnote;
     Note temp;
     bool present, disChange;
     vector<Note> buffer;
     vector<int> association;
     wiringPiSetup() ;
     Drive drive[NBDRIVES];
-    cout << "Initialisation des lecteurs..." << endl;
+    cout << "FloPI - Virgile ROBLES\n---------------------------\nDrive initialization..." << endl;
     for(int i=0; i<2*NBDRIVES; i+=2)
         drive[i/2].Connect(i, i+1);
     int note = 0, pause, staccato;
     string trackPath;
-    cout << "FloPI - Virgile ROBLES\n  Track : ";
+    cout << "-> MIDI file : ";
     cin >> trackPath;
-    cout << "  Tempo : ";
-    cin >> tempo;
-    cout << "  Mesure : ";
-    cin >> mesure;
-    cout << " DEFNOTE (36) : ";
+    parser(trackPath, tempo, events);
+    cout << "-> Reference note (36 recommended) : ";
     cin >> defnote;
-    track.open( trackPath.c_str() );
+    cout << "-> Tempo (BPM) : ";
+    cin >> bpm;
     timeRef=micros();
     for( ;; ) {
         if(disChange) {
             cout<<"####################"<<endl;
-        }
+            }
         for(int i=0; i<NBDRIVES; i++) {
             if(disChange)
                 cout<<"#  DRIVE "<<i;
             if(drive[i].isBusy()) {
                 if(drive[i].ShouldMove(micros(), disChange))
                     drive[i].Move();
-            } else if(disChange)
+                }
+            else if(disChange)
                 cout<<"         #"<<endl;
-        }
+            }
         if(disChange)
             cout<<"####################"<<endl;
         disChange=false;
         while(buffer.size()<2) {
             present=false;
-            parser( &temp.note, &temp.length, &temp.absTime, &temp.channel );
+            nextNote( &temp.note, &temp.length, &temp.absTime, &temp.channel );
             if(temp.note==-1)
                 break;
             for(int i=0; i<association.size(); i++)
@@ -66,14 +60,11 @@ int main( void )
             if(!present)
                 association.push_back(temp.channel);
             buffer.push_back(temp);
-        }
+            }
         if(buffer.empty())
             break;
         for(int i=buffer.size()-1; i>=0; i--)
-            if(micros()-timeRef>=buffer[i].absTime)
-                /*for(int j=0; j<NBDRIVES; j++)
-                    if(!drive[j].isBusy())*/
-            {
+            if(micros()-timeRef>=buffer[i].absTime) {
                 int j;
                 for(j=0; i<association.size(); j++)
                     if(association[j]==buffer[i].channel)
@@ -85,125 +76,96 @@ int main( void )
                     buffer[i]=buffer.back();
                 buffer.pop_back();
                 break;
-            }
-    }
-    track.close();
+                }
+        }
     return 0 ;
-}
+    }
 
-void parser( int* noteD, unsigned int* lengthD, unsigned int* timeD, int* channelD )
-{
-    string curStr;
-    int bar = 0, note = 0, length = 0, locTime = 0, absTime = 0, pause, channel;
-    do{
-        if(!getline( track, curStr )){
-            *noteD = -1;
-            return;
+void nextNote( int* noteD, unsigned int* lengthD, unsigned int* timeD, int* channelD ) {
+    static int i = 0;
+    if(i >= events.size())
+        *noteD = -1;
+    else
+        *noteD = events[i].note ;
+    *lengthD = t2m(events[i].duration) ;
+    *timeD = t2m(events[i].time) ;
+    *channelD = events[i].channel ;
+    i++;
+    }
+
+unsigned int t2m(unsigned int micro) {
+    return (micro*6000000)/(bpm*tempo);
+    }
+
+void parser(string fileName, unsigned int& tempo, vector<Event>& events) {
+    ifstream file;
+    unsigned int timeStamp, absoluteTime;
+    unsigned char buffer[256];
+    unsigned char temp = 0;
+    cout << "MIDI file : ";
+    cin >> fileName;
+    file.open(fileName.c_str(), ios::in | ios::binary);
+    ///HEADER
+    file.read((char*)buffer, 14);
+    if(buffer[0] != 0x4D || buffer[1] != 0x54 || buffer[2] != 0x68 || buffer[3] != 0x64) {
+        cout << "Error : input is not a MIDI file" << endl;
+        exit(EXIT_FAILURE);
+        }
+    tempo = buffer[13];
+    cout << "Parsing..." << endl;
+    while(!file.eof()) {
+        ///PLAYING
+        file.read((char*)buffer, 8);
+        absoluteTime = 0;
+        while(!file.eof()) {
+            timeStamp = 0;
+            do {
+                file.read((char*)(&temp), 1);
+                timeStamp = timeStamp*16 + temp;
+                }
+            while(temp >= 0x80);
+            absoluteTime += timeStamp;
+            file.read((char*)(&temp), 1);
+            if(temp == 0xFF) {
+                unsigned int length = 0;
+                file.read((char*)buffer, 1);
+                do {
+                    file.read((char*)(&temp), 1);
+                    length = length*16 + temp;
+                    }
+                while(temp >= 0x80);
+                file.read((char*)buffer, length);
+                if(length == 0)
+                    break;
+                }
+            else {
+                unsigned char event = temp >> 4;
+                unsigned char n = temp - (event * 16);
+                if(event != 0xC && event != 0xD) {
+                    file.read((char*)buffer, 2);
+                    if(event == 0x8 || (event == 0x9 && buffer[1] == 0)) {
+                        int i = events.size();
+                        do {
+                            i--;
+                            }
+                        while(events[i].channel != n && events[i].note != buffer[0]);
+                        events[i].duration = absoluteTime - events[i].time;
+                        }
+                    else if(event == 0x9) {
+                        Event temp;
+                        temp.channel = n;
+                        temp.note = buffer[0];
+                        temp.time = absoluteTime;
+                        events.push_back(temp);
+                        }
+                    }
+                else {
+                    file.read((char*)buffer, 1);
+                    }
+                }
             }
-        }while(curStr.find("NT") == string::npos);
-        string first = curStr.substr( 0, 30 );
-        string second = curStr.substr( 52, 30 );
-        string noteStr;
-        bool complexi = false, divi = false;
-        int i1 = 0, i2 = 0, i3 = 0, j;
-        for( int i = 0; i < first.length(); i++ )
-            if( first[i] == '+' )
-                complexi = true;
-            else if( first[i] == '/' )
-                divi = true;
-        if( complexi && divi ) {
-            sscanf( first.c_str(), "BA %d CR %d+%d/%d", &bar, &i1, &i2, &i3 );
-            absTime = i1 * 1000 + ( i2 * 1000 ) / i3 + bar * mesure * 1000;
-        } else if( !complexi && divi ) {
-            sscanf( first.c_str(), "BA %d CR %d/%d", &bar, &i2, &i3 );
-            absTime = ( i2 * 1000 ) / i3 + bar * mesure * 1000;
-        } else {
-            sscanf( first.c_str(), "BA %d CR %d", &bar, &i3 );
-            absTime = i3 * 1000 + bar * mesure * 1000;
         }
-        //PARSING LENGTH
-        complexi = divi = false;
-        i1 = i2 = i3 = 0;
-        for( int i = 0; i < second.length(); i++ )
-            if( second[i] == '+' )
-                complexi = true;
-            else if( second[i] == '/' )
-                divi = true;
-        if( complexi && divi ) {
-            sscanf( second.c_str(), " %d+%d/%d", &i1, &i2, &i3 );
-            length = i1 * 1000 + ( i2 * 1000 ) / i3;
-        } else if( !complexi && divi ) {
-            sscanf( second.c_str(), " %d/%d", &i2, &i3 );
-            length = ( i2 * 1000 ) / i3;
-        } else {
-            sscanf( second.c_str(), " %d", &i3 );
-            length = i3 * 1000;
-        }
-        //PARSING CHANNEL
-        for( j = 0; j < curStr.length(); j++ )
-            if( curStr[j] == 'H' )
-                break;
-        channel=curStr[j+3];
+    file.close();
+    sort(events.begin(), events.end(), order);
+    }
 
-        //PARSING NOTE
-        for( j = 0; j < curStr.length(); j++ )
-            if( curStr[j] == 'N' )
-                break;
-        switch( curStr[j + 4] ) {
-        case 'A':
-            note = 0;
-            break;
-        case 'B':
-            note = 2;
-            break;
-        case 'C':
-            note = 3;
-            break;
-        case 'D':
-            note = 5;
-            break;
-        case 'E':
-            note = 7;
-            break;
-        case 'F':
-            note = 8;
-            break;
-        case 'G':
-            note = 10;
-            break;
-        default:
-            cout << "PARSING ERROR\n";
-            break;
-        }
-        switch( curStr[j + 5] ) {
-        case '#':
-            note++;
-            break;
-        case 'b':
-            note--;
-            break;
-        case '-':
-            note -= 12;
-            break;
-        case '\'':
-            note += 12;
-            break;
-        }
-        if( curStr[j + 6] == '-' )
-            note -= 12;
-        if( curStr[j + 6] == '\'' )
-            note += 12;
-        if( curStr[j + 7] == '-' )
-            note -= 12;
-        if( curStr[j + 7] == '\'' )
-            note += 12;
-        note += defnote;
-        length*=1000;
-        absTime*=1000;
-        length /= tempo / 60.0;
-        absTime /= tempo / 60.0;
-        *timeD = absTime;
-        *noteD = note;
-        *lengthD = length;
-        *channelD = channel;
-}

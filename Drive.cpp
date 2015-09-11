@@ -2,26 +2,22 @@
 
 using namespace std;
 
-Drive::Drive()
-{
+Drive::Drive() {
     _curPos=0;
     _busy=false;
-}
+    }
 
-Drive::~Drive()
-{
+Drive::~Drive() {
     //dtor
-}
+    }
 
-bool Drive::isBusy()
-{
-	if(!_busy)
-		digitalWrite(_stepPin, LOW);
-	return _busy;
-}
+bool Drive::isBusy() {
+    if(!_busy)
+        digitalWrite(_stepPin, LOW);
+    return _busy;
+    }
 
-void Drive::Connect(int dP, int sP)
-{
+void Drive::Connect(int dP, int sP) {
     _dirPin=dP;
     _stepPin=sP;
     pinMode( _dirPin, OUTPUT ) ;
@@ -31,26 +27,25 @@ void Drive::Connect(int dP, int sP)
         digitalWrite(_stepPin, HIGH);
         delay(3);
         digitalWrite(_stepPin, LOW);
-    }
+        }
     digitalWrite( _dirPin, LOW );
-}
+    }
 
-void Drive::Move()
-{
+void Drive::Move() {
     _curPos++;
     //DIRECTION
     if( _curPos == MAXPOS / 2 )
         digitalWrite(_dirPin,HIGH);
+    */
     if( _curPos == MAXPOS ) {
         _curPos = 0;
         digitalWrite(_dirPin,LOW);
-    }
+        }
     digitalWrite(_stepPin , LOW);
     digitalWrite(_stepPin, HIGH);
-}
+    }
 
-bool Drive::ShouldMove(unsigned int newTime, bool disp)
-{
+bool Drive::ShouldMove(unsigned int newTime, bool disp) {
     if(disp) {
         cout<<" C1+"<<_note;
         if(_note>=10)
@@ -59,19 +54,19 @@ bool Drive::ShouldMove(unsigned int newTime, bool disp)
             cout<<"    #"<<endl;
         else
             cout<<"   #"<<endl;
-    }
+        }
     if(newTime-_time>=_curDel) {
         _curLen+=newTime-_time;
         _time=newTime;
         if(_curLen>=_len)
             _busy=false;
         return true;
-    } else
+        }
+    else
         return false;
-}
+    }
 
-void Drive::NewNote(int note, unsigned int length, unsigned int instant)
-{
+void Drive::NewNote(int note, unsigned int length, unsigned int instant) {
     _note=note;
     float freq;
     _curLen=0;
@@ -80,4 +75,4 @@ void Drive::NewNote(int note, unsigned int length, unsigned int instant)
     _curDel = floor(( 1.0 / freq ) * 1000000.0);
     _busy = true;
     _time = instant;
-}
+    }
