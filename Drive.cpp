@@ -36,7 +36,6 @@ void Drive::Move() {
     //DIRECTION
     if( _curPos == MAXPOS / 2 )
         digitalWrite(_dirPin,HIGH);
-    */
     if( _curPos == MAXPOS ) {
         _curPos = 0;
         digitalWrite(_dirPin,LOW);

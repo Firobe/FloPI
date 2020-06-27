@@ -102,8 +102,6 @@ void parser(string fileName, unsigned int& tempo, vector<Event>& events) {
     unsigned int timeStamp, absoluteTime;
     unsigned char buffer[256];
     unsigned char temp = 0;
-    cout << "MIDI file : ";
-    cin >> fileName;
     file.open(fileName.c_str(), ios::in | ios::binary);
     ///HEADER
     file.read((char*)buffer, 14);

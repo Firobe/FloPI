@@ -9,7 +9,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
-//#include <wiringPi.h>
+#include <wiringPi.h>
 
 using namespace std;
 
